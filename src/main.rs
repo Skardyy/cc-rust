@@ -1,9 +1,36 @@
 use std::{io::{self, Stdout, Error}, time::Duration};
 
-use crossterm::{terminal::{enable_raw_mode, EnterAlternateScreen, disable_raw_mode, LeaveAlternateScreen}, execute, event::{self, Event, KeyCode, KeyEventKind}, cursor::EnableBlinking, queue, style::SetBackgroundColor};
-use ratatui::{Terminal, prelude::{CrosstermBackend, Layout, Direction, Constraint}, widgets::{Paragraph, Borders, Block}, style::{self, Color}};
+use crossterm::{terminal::{enable_raw_mode, EnterAlternateScreen, disable_raw_mode, LeaveAlternateScreen}, execute, event::{self, Event, KeyCode, KeyEventKind}};
+use ratatui::{Terminal, prelude::{CrosstermBackend, Layout, Direction, Constraint}, widgets::{Paragraph, Borders, Block, BorderType}, style::{self, Color, Style}};
 use std::env;
 
+use lazy_static::lazy_static;
+use std::collections::HashMap;
+use std::process::Command;
+
+lazy_static! {
+
+    static ref COMMANDS_MAP: HashMap<&'static str, Command> = {
+
+        let fzf_cd: Command = {
+            let mut cmd = Command::new("Powershell");
+            cmd.arg("fzf | Split-Path | cd");
+            cmd
+        };
+
+        let fzf_edit: Command = {
+            let mut cmd = Command::new("Powershell");
+            cmd.arg("fzf | $ { code $_ }");
+            cmd
+        };
+
+        let mut m = HashMap::new();
+        m.insert("fe", fzf_cd);
+        m.insert("ef", fzf_edit);
+        return m
+    };
+
+}
 
 fn main() -> Result<(), io::Error> {
     let mut terminal = setup_terminal()?;
@@ -16,8 +43,6 @@ fn setup_terminal() -> Result<Terminal<CrosstermBackend<Stdout>>, Error> {
     let mut stdout = io::stdout();
     enable_raw_mode()?;
     execute!(stdout, EnterAlternateScreen)?;
-    let enable_blinking = EnableBlinking;
-    queue!(stdout, enable_blinking)?;
     Ok(Terminal::new(CrosstermBackend::new(stdout))?)
 }
 
@@ -35,21 +60,41 @@ fn get_cwd() -> String{
     }
 }
 
-fn handle_command(input: String){
-
+fn handle_command(input: String) -> Result<(), Error>{
+    if let Some(command) = COMMANDS_MAP.get_mut(&input.as_str()){
+        command.output()?;
+    }
+    else{
+        let mut cmd = Command::new("Powershell");
+            cmd.arg(format!("{input}"));
+            cmd.output()?;
+    } 
+    Ok(())
 }
 
 fn get_footer<'a>(input: String, dir: String) -> Paragraph<'a> {
-    let footer = Paragraph::new(format!(" PS {dir} {input}"))
+    let footer = Paragraph::new(format!(" {input}"))
         .style(style::Style::default().fg(Color::LightCyan))
-        .block(Block::default().borders(Borders::ALL));
+        .block(
+            Block::default()
+            .borders(Borders::ALL)
+            .style(Style::default().fg(Color::White))
+            .title(format!(" PS {dir} "))
+            .border_type(BorderType::Plain)
+        );
     return footer;
 }
 
 fn get_body<'a>() -> Paragraph<'a> {
     let body = Paragraph::new(" Welcome to the CLI app!")
         .style(style::Style::default().fg(Color::LightCyan))
-        .block(Block::default().borders(Borders::ALL));
+        .block(
+            Block::default()
+            .borders(Borders::ALL)
+            .title(format!(" body "))
+            .style(Style::default().fg(Color::White))
+            .border_type(BorderType::Plain)
+        );
     return body;
 }
 
@@ -57,7 +102,7 @@ fn run(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<(), Error> {
 
     let mut dir = get_cwd();
     let mut input = String::new();
-    
+
     Ok(loop {
 
         terminal.draw(|frame| {
@@ -89,7 +134,13 @@ fn run(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<(), Error> {
                     KeyCode::Backspace if key.kind == KeyEventKind::Release => {
                         input.pop();
                     },
-                    KeyCode::Enter => handle_command(input.clone()),
+                    KeyCode::Enter => {
+                        let res = handle_command(input.clone());
+                        match res{
+                            Ok(()) => (),
+                            Err(x) => println!("{x}")
+                        }
+                    },
                     _ => {}
                 }
 

@@ -37,6 +37,7 @@ name = "cli"
 version = "0.1.0"
 dependencies = [
  "crossterm 0.27.0",
+ "lazy_static",
  "ratatui",
 ]
 
@@ -92,6 +93,12 @@ name = "indoc"
 version = "2.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c785eefb63ebd0e33416dfcb8d6da0bf27ce752843a45632a67bf10d4d4b5c4"
+
+[[package]]
+name = "lazy_static"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
